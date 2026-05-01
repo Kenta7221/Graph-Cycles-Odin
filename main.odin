@@ -1,8 +1,15 @@
 package main
 
-main :: proc() {
-    graph := graph_init(10, 70)
-    defer graph_delete(&graph)
+import "core:fmt"
 
-    graph_print(&graph)
+main :: proc() {
+	graph := graph_init(10, 70)
+	defer graph_delete(&graph)
+
+	graph_print(&graph)
+
+	path := ham_cycle_path(&graph)
+	defer delete(path)
+
+	fmt.println(path)
 }
