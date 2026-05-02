@@ -16,6 +16,21 @@ Frame :: struct {
 	nb_idx: int,
 }
 
+graph_zero_init :: proc(n: u32) -> Graph {
+	graph := Graph {
+		lists = make(map[u32]^[dynamic]u32),
+		n     = n,
+	}
+
+	for i in 0 ..< n {
+		arr := new([dynamic]u32)
+		arr^ = make([dynamic]u32)
+		graph.lists[i] = arr
+	}
+
+	return graph
+}
+
 graph_init :: proc(n, s: u32) -> Graph {
 	if n < 10 {
 		fmt.println("Node amount is too small, n > 10")
@@ -114,6 +129,21 @@ graph_set_edge :: proc(i, j: u32, graph: ^Graph) {
 	append_elem(arr, j)
 }
 
+graph_edge_delete :: proc(src, node: u32, graph: ^Graph) {
+	if src > graph.n || node > graph.n {
+		fmt.println("Node is out of bounds")
+		os.exit(1)
+	}
+
+	arr := graph.lists[src]
+	for i in 0 ..< len(arr) {
+		if arr[i] == node {
+			ordered_remove(arr, i)
+			return
+		}
+	}
+}
+
 graph_has_edge :: proc(i, j: u32, graph: ^Graph) -> bool {
 	arr := graph.lists[i]
 	for v in arr^ do if v == j do return true
@@ -147,14 +177,13 @@ ham_cycle_path :: proc(graph: ^Graph) -> [dynamic]u32 {
 
 	stack: [dynamic]Frame
 	defer delete(stack)
-
 	path := make([dynamic]u32)
 
 	append_elem(&stack, Frame{start, 0})
 	append_elem(&path, start)
-
 	for len(stack) > 0 {
 		frame := &stack[len(stack) - 1]
+
 		neighbours := graph_get_neighbours(frame.node, graph)
 
 		if cast(u32)len(path) == graph.n {
@@ -177,6 +206,8 @@ ham_cycle_path :: proc(graph: ^Graph) -> [dynamic]u32 {
 			}
 		}
 
+		delete(neighbours)
+
 		if !has_unvisited_nb {
 			marked[stack[len(stack) - 1].node] = false
 			pop(&stack)
@@ -185,4 +216,39 @@ ham_cycle_path :: proc(graph: ^Graph) -> [dynamic]u32 {
 	}
 
 	return nil
+}
+
+euler_cycle_path :: proc(src: ^Graph) -> [dynamic]u32 {
+	// Perform deep copy in order to delete edges
+	graph := graph_zero_init(src.n)
+	defer graph_delete(&graph)
+	for key, val in src.lists {
+		arr := new([dynamic]u32)
+		arr^ = make([dynamic]u32)
+		for v in val^ do append_elem(arr, v)
+		graph.lists[key] = arr
+	}
+
+	path: [dynamic]u32
+
+	stack := make([dynamic]u32)
+	defer delete(stack)
+	append_elem(&stack, 0)
+
+	for len(stack) > 0 {
+		node := stack[len(stack) - 1]
+		neighbours := graph_get_neighbours(node, &graph)
+		if len(neighbours) == 0 {
+			append_elem(&path, node)
+			pop(&stack)
+		} else {
+			nb := neighbours[0]
+			graph_edge_delete(node, nb, &graph)
+			graph_edge_delete(nb, node, &graph)
+			append_elem(&stack, nb)
+		}
+		delete(neighbours)
+	}
+
+	return path
 }
