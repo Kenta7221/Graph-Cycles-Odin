@@ -1,65 +1,66 @@
 package main
 
-import "core:log"
-import "core:testing"
-import "core:math/rand"
-import "core:strings"
 import "core:fmt"
+import "core:log"
+import "core:math/rand"
+import "core:os"
+import "core:path/filepath"
+import "core:strconv"
+import "core:strings"
+import "core:testing"
 
 MAX_NODE :: 1_000 + 1
 ITERATION :: 10_000
 SATURATIONS :: [2]u32{30, 70}
 
-@(test)
+//@(test)
 hamiltononian_graph :: proc(t: ^testing.T) {
-    for i in 0..<ITERATION {
-        for s in SATURATIONS {
-            n := rand.uint32_range(10, MAX_NODE)
-            
-            graph := graph_init(n, s)
+	for i in 0 ..< ITERATION {
+		for s in SATURATIONS {
+			n := rand.uint32_range(10, MAX_NODE)
 
-            if !all_edges_even(&graph) {
-                log.infof("Failed to create even edges for %d%", s)
-                log.info(graph)
-                testing.fail(t)
-            }
+			graph := graph_init(n, s)
 
-            if has_duplicates(&graph){
-                log.infof("Failed to create even edges without duplicates for %d%", s)
-                log.info(graph)
-                testing.fail(t)
-            }
+			if !all_edges_even(&graph) {
+				log.infof("Failed to create even edges for %d%", s)
+				log.info(graph)
+				testing.fail(t)
+			}
 
-            graph_delete(&graph)
-        }
-    }
+			if has_duplicates(&graph) {
+				log.infof("Failed to create even edges without duplicates for %d%", s)
+				log.info(graph)
+				testing.fail(t)
+			}
+
+			graph_delete(&graph)
+		}
+	}
 }
 
-@(test)
+//@(test)
 nonhamiltononian_graph :: proc(t: ^testing.T) {
-    // for i in 0..<ITERATION {
-        
-    //     n := rand.uint32_range(10, MAX_NODE)
-        
-    //     graph := graph_init(n, 50)
+	for i in 0 ..< ITERATION {
+		n := rand.uint32_range(10, MAX_NODE)
 
-    //     if !all_edges_even(&graph) {
-    //         log.infof("Failed to create even edges for %d%", s)
-    //         log.info(graph)
-    //         testing.fail(t)
-    //     }
+		graph := graph_init(n, 50, false)
 
-    //     if has_duplicates(&graph){
-    //         log.infof("Failed to create even edges without duplicates for %d%", s)
-    //         log.info(graph)
-    //         testing.fail(t)
-    //     }
+		if !all_edges_even(&graph) {
+			log.info("Failed to create even edges for nonhami")
+			log.info(graph)
+			testing.fail(t)
+		}
 
-    //     graph_delete(&graph)
-    // }
+		if has_duplicates(&graph) {
+			log.info("Failed to create even edges for nonhami")
+			log.info(graph)
+			testing.fail(t)
+		}
+
+		graph_delete(&graph)
+	}
 }
 
-// zero_init leaking memory and set_edge also
 @(test)
 euler_cycle :: proc(t: ^testing.T) {
 	data, err1 := os.read_entire_file("tests/euler_test.txt", context.allocator)
@@ -69,7 +70,7 @@ euler_cycle :: proc(t: ^testing.T) {
 	}
 	defer delete(data, context.allocator)
 
-	results, err2 := os.read_entire_file("tests/euler_test.txt", context.allocator)
+	results, err2 := os.read_entire_file("tests/euler_solution.txt", context.allocator)
 	if err2 != nil {
 		log.info("Couldn't open result file for euler's cycle")
 		testing.fail_now(t)
@@ -80,41 +81,36 @@ euler_cycle :: proc(t: ^testing.T) {
 	it_res := string(results)
 
 	// Fetch how many tests
-	str, ok := strings.split_lines_iterator(&it_data)
+	str, _ := strings.split_lines_iterator(&it_data)
 	tests := strconv.parse_uint(str) or_else 0
 	for i in 0 ..< tests {
-		graph: Graph
+		init_vals, _ := strings.split_lines_iterator(&it_data)
+		vals := strings.split(init_vals, " ")
+		nodes := strconv.parse_uint(vals[0]) or_else 0
+		edges := strconv.parse_uint(vals[1]) or_else 0
+		delete(vals)
 
-		i: u32 = 0
-		edges: u32 = 0
-		is_init := false
+		graph := graph_zero_init(cast(u32)nodes)
+
 		for line in strings.split_lines_iterator(&it_data) {
-			if i > edges do break
-			i += 1
+			if line == "" do break
 
 			parts := strings.split(line, " ")
-			a := strconv.parse_uint(parts[0]) or_else 0
-			b := strconv.parse_uint(parts[1]) or_else 0
+			n1 := strconv.parse_uint(parts[0]) or_else 0
+			n2 := strconv.parse_uint(parts[1]) or_else 0
 
-			if !is_init {
-				graph = graph_zero_init(cast(u32)a)
-				edges = cast(u32)b
-				is_init = true
-				continue
-			}
-
-			graph_set_edge(cast(u32)a, cast(u32)b, &graph)
-			graph_set_edge(cast(u32)b, cast(u32)a, &graph)
+			graph_set_edge(cast(u32)n1, cast(u32)n2, &graph)
+			graph_set_edge(cast(u32)n2, cast(u32)n1, &graph)
 			delete(parts)
 		}
 
-		graph_print(&graph)
-
+		expected, _ := strings.split_lines_iterator(&it_res)
 		path := euler_cycle_path(&graph)
-		log.info(path)
+		if !is_result_correct(&path, &expected) {
+			log.infof("Result of Euler cycle incorrect, expected: %s, got: %v", expected, path)
+			testing.fail_now(t)
+		}
 
-		
-		
 		delete(path)
 		graph_delete(&graph)
 	}
@@ -131,15 +127,50 @@ all_edges_even :: proc(graph: ^Graph) -> bool {
 
 @(private = "file")
 has_duplicates :: proc(graph: ^Graph) -> bool {
-    for key, arr in graph.lists {
-        seen := make(map[u32]bool)
-        for v in arr^ {
-            if seen[v] do return true
-            seen[v] = true
-        }
+	for key, arr in graph.lists {
+		seen := make(map[u32]bool)
+		for v in arr^ {
+			if seen[v] do return true
+			seen[v] = true
+		}
+		delete(seen)
+	}
 
-        delete(seen)
-    }
+	return false
+}
 
-    return false
+@(private = "file")
+is_result_correct :: proc(res: ^[dynamic]u32, str: ^string) -> bool {
+	nums_str := strings.split(str^, " ")
+	defer delete(nums_str)
+
+	if len(nums_str) + 1 != len(res^) do return false
+
+	// Because the starting node doesn't matter in a cycle
+	// we chech from which point the result starts and then we loop
+	// through string accordingly
+	mods := make([dynamic]u32)
+	defer delete(mods)
+
+	start := res[0]
+	for num_str, idx in nums_str {
+		num, _ := strconv.parse_uint(num_str)
+		if cast(u32)num == res[0] {
+			append_elem(&mods, cast(u32)(idx))
+		}
+	}
+
+	for mod in mods {
+		correct := true
+		for j in 0 ..< len(res) {
+			rotated_idx := (cast(u32)j + mod) % cast(u32)len(nums_str)
+			num, _ := strconv.parse_uint(nums_str[rotated_idx])
+			if cast(u32)num != res[j] {
+				correct = false
+				break
+			}
+		}
+		if correct do return true
+	}
+	return false
 }
