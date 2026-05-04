@@ -31,7 +31,7 @@ graph_zero_init :: proc(n: u32) -> Graph {
 	return graph
 }
 
-graph_init :: proc(n, s: u32) -> Graph {
+graph_init :: proc(n, s: u32, is_hamiltonian := true) -> Graph {
 	if n < 10 {
 		fmt.println("Node amount is too small, n > 10")
 		os.exit(1)
@@ -55,8 +55,11 @@ graph_init :: proc(n, s: u32) -> Graph {
 	rand.shuffle(cycle)
 
 	// Tie loose ends
-	graph_set_edge(cycle[0], cycle[n - 1], &graph)
-	graph_set_edge(cycle[n - 1], cycle[0], &graph)
+	if is_hamiltonian {
+		graph_set_edge(cycle[0], cycle[n - 1], &graph)
+		graph_set_edge(cycle[n - 1], cycle[0], &graph)
+	}
+
 	for i in 1 ..< n {
 		graph_set_edge(cycle[i], cycle[i - 1], &graph)
 		graph_set_edge(cycle[i - 1], cycle[i], &graph)
@@ -85,11 +88,11 @@ graph_init :: proc(n, s: u32) -> Graph {
 	edges_added: u32 = 0
 	for edges_added < remaining {
 		attempts += 1
-		if attempts > 10000 do break // safety exit if graph too dense
+		if attempts > 10000 do break // safety exit if graph is too dense
 
 		a := candidates[i][0]
 		b := candidates[i][1]
-		c := rand.uint32_range(0, n)
+		c := rand.uint32_range(0, n) if is_hamiltonian else rand.uint32_range(1, n - 1)
 
 		if b == c || a == c do continue
 
@@ -122,6 +125,7 @@ graph_delete :: proc(graph: ^Graph) {
 graph_set_edge :: proc(i, j: u32, graph: ^Graph) {
 	if i > graph.n || j > graph.n {
 		fmt.println("Node is out of bounds")
+		fmt.println(i, j)
 		os.exit(1)
 	}
 
@@ -219,9 +223,12 @@ ham_cycle_path :: proc(graph: ^Graph) -> [dynamic]u32 {
 }
 
 euler_cycle_path :: proc(src: ^Graph) -> [dynamic]u32 {
-	// Perform deep copy in order to delete edges
-	graph := graph_zero_init(src.n)
+	graph := Graph {
+		lists = make(map[u32]^[dynamic]u32),
+		n     = src.n,
+	}
 	defer graph_delete(&graph)
+
 	for key, val in src.lists {
 		arr := new([dynamic]u32)
 		arr^ = make([dynamic]u32)

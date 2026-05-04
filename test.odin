@@ -59,17 +59,77 @@ nonhamiltononian_graph :: proc(t: ^testing.T) {
     // }
 }
 
-@(private="file")
-all_edges_even :: proc(graph: ^Graph) -> bool {
-    for key, val in graph.lists {
-        if(len(val^) % 2 != 0) do return false
-    }
+// zero_init leaking memory and set_edge also
+@(test)
+euler_cycle :: proc(t: ^testing.T) {
+	data, err1 := os.read_entire_file("tests/euler_test.txt", context.allocator)
+	if err1 != nil {
+		log.info("Couldn't open test file for euler's cycle")
+		testing.fail_now(t)
+	}
+	defer delete(data, context.allocator)
 
-    return true
+	results, err2 := os.read_entire_file("tests/euler_test.txt", context.allocator)
+	if err2 != nil {
+		log.info("Couldn't open result file for euler's cycle")
+		testing.fail_now(t)
+	}
+	defer delete(results, context.allocator)
+
+	it_data := string(data)
+	it_res := string(results)
+
+	// Fetch how many tests
+	str, ok := strings.split_lines_iterator(&it_data)
+	tests := strconv.parse_uint(str) or_else 0
+	for i in 0 ..< tests {
+		graph: Graph
+
+		i: u32 = 0
+		edges: u32 = 0
+		is_init := false
+		for line in strings.split_lines_iterator(&it_data) {
+			if i > edges do break
+			i += 1
+
+			parts := strings.split(line, " ")
+			a := strconv.parse_uint(parts[0]) or_else 0
+			b := strconv.parse_uint(parts[1]) or_else 0
+
+			if !is_init {
+				graph = graph_zero_init(cast(u32)a)
+				edges = cast(u32)b
+				is_init = true
+				continue
+			}
+
+			graph_set_edge(cast(u32)a, cast(u32)b, &graph)
+			graph_set_edge(cast(u32)b, cast(u32)a, &graph)
+			delete(parts)
+		}
+
+		graph_print(&graph)
+
+		path := euler_cycle_path(&graph)
+		log.info(path)
+
+		
+		
+		delete(path)
+		graph_delete(&graph)
+	}
 }
 
+@(private = "file")
+all_edges_even :: proc(graph: ^Graph) -> bool {
+	for key, val in graph.lists {
+		if (len(val^) % 2 != 0) do return false
+	}
 
-@(private="file")
+	return true
+}
+
+@(private = "file")
 has_duplicates :: proc(graph: ^Graph) -> bool {
     for key, arr in graph.lists {
         seen := make(map[u32]bool)

@@ -3,7 +3,7 @@ package main
 import "core:fmt"
 
 main :: proc() {
-	graph := graph_zero_init(6)
+	graph := graph_zero_init(6) // nodes 0-5
 	defer graph_delete(&graph)
 
 	// 0 -- 1
@@ -37,8 +37,6 @@ main :: proc() {
 	// 4 -- 5
 	graph_set_edge(4, 5, &graph)
 	graph_set_edge(5, 4, &graph)
-
-	graph_print(&graph)
 
 	euler_path := euler_cycle_path(&graph)
 	defer delete(euler_path)
