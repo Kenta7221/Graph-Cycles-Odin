@@ -32,7 +32,7 @@ graph_zero_init :: proc(n: u32) -> Graph {
 }
 
 graph_init :: proc(n, s: u32, is_hamiltonian := true) -> Graph {
-	if n < 0 {
+	if n < 10 {
 		fmt.println("Node amount is too small, n > 10")
 		os.exit(1)
 	}
@@ -54,6 +54,8 @@ graph_init :: proc(n, s: u32, is_hamiltonian := true) -> Graph {
 	for i in 0 ..< n do cycle[i] = i
 	rand.shuffle(cycle)
 
+	isolated := cycle[0]
+
 	// Tie loose ends
 	if is_hamiltonian {
 		graph_set_edge(cycle[0], cycle[n - 1], &graph)
@@ -64,30 +66,27 @@ graph_init :: proc(n, s: u32, is_hamiltonian := true) -> Graph {
 			graph_set_edge(cycle[i - 1], cycle[i], &graph)
 		}
 	} else {
-		// Create two different cycles so the edges stay even
-		mid := n / 2
-		for i in 0 ..< mid {
-			next := (i + 1) % mid
-			graph_set_edge(cycle[i], cycle[next], &graph)
-			graph_set_edge(cycle[next], cycle[i], &graph)
-		}
-		for i in mid ..< n {
-			next := mid + (i - mid + 1) % (n - mid)
-			graph_set_edge(cycle[i], cycle[next], &graph)
-			graph_set_edge(cycle[next], cycle[i], &graph)
+		// Skip 0 to isolate from the graph
+		graph_set_edge(cycle[1], cycle[n - 1], &graph)
+		graph_set_edge(cycle[n - 1], cycle[1], &graph)
+		for i in 2 ..< n {
+			graph_set_edge(cycle[i], cycle[i - 1], &graph)
+			graph_set_edge(cycle[i - 1], cycle[i], &graph)
 		}
 	}
 
 	e_max: u32 = cast(u32)(n * (n - 1) / 2)
 	e_target: u32 = cast(u32)math.ceil(cast(f32)(s) / 100.0 * cast(f32)e_max)
+	if e_target <= n do return graph
+
 	remaining := e_target - n
 	remaining = remaining - (remaining % 3)
 
 	candidates := make([dynamic][2]u32)
 	defer delete(candidates)
-
 	for i in 0 ..< n {
 		for j in i + 1 ..< n {
+			if !is_hamiltonian && (i == isolated || j == isolated) do continue
 			if !graph_has_edge(i, j, &graph) {
 				append_elem(&candidates, [2]u32{i, j})
 			}
@@ -100,14 +99,23 @@ graph_init :: proc(n, s: u32, is_hamiltonian := true) -> Graph {
 	attempts := 0
 	edges_added: u32 = 0
 	for edges_added < remaining {
-		attempts += 1
-		if attempts > 10000 do break // safety exit if graph is too dense
+		if i >= len(candidates) do break
 
 		a := candidates[i][0]
 		b := candidates[i][1]
-		c := rand.uint32_range(0, n) if is_hamiltonian else rand.uint32_range(1, n - 1)
+		c := rand.uint32_range(0, n)
 
+		if !is_hamiltonian && c == isolated do continue
 		if b == c || a == c do continue
+
+		if graph_has_edge(a, b, &graph) ||
+		   graph_has_edge(a, c, &graph) ||
+		   graph_has_edge(b, c, &graph) {
+			attempts += 1
+			if attempts > 10000 do break
+			continue
+		}
+		attempts = 0
 
 		if graph_has_edge(a, b, &graph) do continue
 		if graph_has_edge(a, c, &graph) do continue
@@ -203,7 +211,9 @@ ham_cycle_path :: proc(graph: ^Graph) -> [dynamic]u32 {
 		}
 
 		has_unvisited_nb := false
-		for nb in neighbours {
+		for frame.nb_idx < len(neighbours) {
+			nb := neighbours[frame.nb_idx]
+			frame.nb_idx += 1
 			if !marked[nb] {
 				append_elem(&stack, Frame{nb, 0})
 				append_elem(&path, nb)
@@ -220,6 +230,7 @@ ham_cycle_path :: proc(graph: ^Graph) -> [dynamic]u32 {
 		}
 	}
 
+	delete(path)
 	return nil
 }
 

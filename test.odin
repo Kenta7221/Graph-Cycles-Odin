@@ -28,7 +28,6 @@ hamiltononian_graph :: proc(t: ^testing.T) {
 			}
 
 			if has_duplicates(&graph) {
-				log.infof("Failed to create even edges without duplicates for %d%", s)
 				log.info(graph)
 				testing.fail_now(t)
 			}
@@ -38,7 +37,7 @@ hamiltononian_graph :: proc(t: ^testing.T) {
 	}
 }
 
-//@(test)
+@(test)
 nonhamiltononian_graph :: proc(t: ^testing.T) {
 	for i in 0 ..< ITERATION {
 		n := rand.uint32_range(10, GEN_MAX_NODE)
@@ -62,27 +61,6 @@ nonhamiltononian_graph :: proc(t: ^testing.T) {
 }
 
 @(test)
-euler_cycle_test :: proc(t: ^testing.T) {
-	for i in 0 ..< ITERATION {
-		for s in SATURATIONS {
-			n := rand.uint32_range(10, PATH_MAX_NODE)
-
-			graph := graph_init(n, s)
-
-			path := euler_cycle_path(&graph)
-
-			if path == nil {
-				log.info("The path from generated euler cycle doesn't exist: %v", path[:])
-				testing.fail(t)
-			}
-
-			delete(path)
-			graph_delete(&graph)
-		}
-	}
-}
-
-@(test)
 ham_cycle_gen :: proc(t: ^testing.T) {
 	for i in 0 ..< ITERATION {
 		for s in SATURATIONS {
@@ -90,14 +68,21 @@ ham_cycle_gen :: proc(t: ^testing.T) {
 
 			graph := graph_init(n, s)
 
-			path := ham_cycle_path(&graph)
+			ham_path := ham_cycle_path(&graph)
 
-			if path == nil {
-				log.info("The path from generated hamilton cycle doesn't exist: %v", path[:])
+			if ham_path == nil {
+				log.info("Hamiltonian graph does not contain hamilton cycle: %v", graph)
 				testing.fail(t)
 			}
 
-			delete(path)
+			euler_path := euler_cycle_path(&graph)
+			if euler_path == nil {
+				log.info("Hamiltonian graph does not contain euler cycle: %v", graph)
+				testing.fail(t)
+			}
+
+			delete(ham_path)
+			delete(euler_path)
 			graph_delete(&graph)
 		}
 	}
@@ -105,21 +90,28 @@ ham_cycle_gen :: proc(t: ^testing.T) {
 
 @(test)
 nonham_cycle_gen :: proc(t: ^testing.T) {
-	//for i in 0 ..< ITERATION {
-	n: u32 = 7
+	for i in 0 ..< ITERATION {
+		n := rand.uint32_range(10, 20)
 
-	graph := graph_init(n, 50, false)
-	log.info(graph.lists)
-	path := ham_cycle_path(&graph)
+		graph := graph_init(n, 50, false)
+		path := ham_cycle_path(&graph)
 
-	if path == nil {
-		log.info("The path from generated hamilton cycle does exist: %v", path[:])
-		testing.fail(t)
+		ham_path := ham_cycle_path(&graph)
+		if ham_path != nil {
+			log.info("Nonhamiltonian graph does contain hamilton cycle: %v %v", graph)
+			testing.fail(t)
+		}
+
+		euler_path := euler_cycle_path(&graph)
+		if euler_path == nil {
+			log.info("Nonhamiltonian graph does not contain euler cycle: %v", graph)
+			testing.fail(t)
+		}
+
+		delete(ham_path)
+		delete(euler_path)
+		graph_delete(&graph)
 	}
-
-	delete(path)
-	graph_delete(&graph)
-	//}
 }
 
 //@(test)
