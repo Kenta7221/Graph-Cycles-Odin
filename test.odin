@@ -8,13 +8,12 @@ import "core:strconv"
 import "core:strings"
 import "core:testing"
 
-
 GEN_MAX_NODE :: 100
 PATH_MAX_NODE :: 15
 ITERATION :: 10_000
 SATURATIONS :: [2]u32{30, 70}
 
-//@(test)
+@(test)
 hamiltononian_graph :: proc(t: ^testing.T) {
 	for i in 0 ..< ITERATION {
 		for s in SATURATIONS {
@@ -62,7 +61,7 @@ nonhamiltononian_graph :: proc(t: ^testing.T) {
 	}
 }
 
-//@(test)
+@(test)
 euler_cycle_test :: proc(t: ^testing.T) {
 	for i in 0 ..< ITERATION {
 		for s in SATURATIONS {
@@ -83,7 +82,7 @@ euler_cycle_test :: proc(t: ^testing.T) {
 	}
 }
 
-//@(test)
+@(test)
 ham_cycle_gen :: proc(t: ^testing.T) {
 	for i in 0 ..< ITERATION {
 		for s in SATURATIONS {

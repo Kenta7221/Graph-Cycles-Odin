@@ -175,13 +175,6 @@ graph_get_neighbours :: proc(node: u32, graph: ^Graph) -> []u32 {
 	return arr[:]
 }
 
-graph_print :: proc(graph: ^Graph) {
-	for idx, val in graph.lists {
-		fmt.printfln("%d: %v", idx, val[:])
-	}
-	fmt.println()
-}
-
 ham_cycle_path :: proc(graph: ^Graph) -> [dynamic]u32 {
 	start: u32 = 0
 	marked := make([]bool, graph.n)
@@ -231,6 +224,7 @@ ham_cycle_path :: proc(graph: ^Graph) -> [dynamic]u32 {
 }
 
 euler_cycle_path :: proc(src: ^Graph) -> [dynamic]u32 {
+	// Deep copy graph to allow deleting edges
 	graph := Graph {
 		lists = make(map[u32]^[dynamic]u32),
 		n     = src.n,
