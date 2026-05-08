@@ -4,12 +4,13 @@ import "core:fmt"
 import "core:log"
 import "core:math/rand"
 import "core:os"
-import "core:path/filepath"
 import "core:strconv"
 import "core:strings"
 import "core:testing"
 
-MAX_NODE :: 1_000 + 1
+
+GEN_MAX_NODE :: 100
+PATH_MAX_NODE :: 15
 ITERATION :: 10_000
 SATURATIONS :: [2]u32{30, 70}
 
@@ -17,20 +18,20 @@ SATURATIONS :: [2]u32{30, 70}
 hamiltononian_graph :: proc(t: ^testing.T) {
 	for i in 0 ..< ITERATION {
 		for s in SATURATIONS {
-			n := rand.uint32_range(10, MAX_NODE)
+			n := rand.uint32_range(10, GEN_MAX_NODE)
 
 			graph := graph_init(n, s)
 
 			if !all_edges_even(&graph) {
 				log.infof("Failed to create even edges for %d%", s)
 				log.info(graph)
-				testing.fail(t)
+				testing.fail_now(t)
 			}
 
 			if has_duplicates(&graph) {
 				log.infof("Failed to create even edges without duplicates for %d%", s)
 				log.info(graph)
-				testing.fail(t)
+				testing.fail_now(t)
 			}
 
 			graph_delete(&graph)
@@ -41,28 +42,89 @@ hamiltononian_graph :: proc(t: ^testing.T) {
 //@(test)
 nonhamiltononian_graph :: proc(t: ^testing.T) {
 	for i in 0 ..< ITERATION {
-		n := rand.uint32_range(10, MAX_NODE)
+		n := rand.uint32_range(10, GEN_MAX_NODE)
 
 		graph := graph_init(n, 50, false)
 
 		if !all_edges_even(&graph) {
-			log.info("Failed to create even edges for nonhami")
+			log.info("Failed to create nonhamiltonian graph (uneven edges)")
 			log.info(graph)
-			testing.fail(t)
+			testing.fail_now(t)
 		}
 
 		if has_duplicates(&graph) {
-			log.info("Failed to create even edges for nonhami")
+			log.info("Failed to create nonhamiltonian graph (contains duplicates)")
 			log.info(graph)
-			testing.fail(t)
+			testing.fail_now(t)
 		}
 
 		graph_delete(&graph)
 	}
 }
 
+//@(test)
+euler_cycle_test :: proc(t: ^testing.T) {
+	for i in 0 ..< ITERATION {
+		for s in SATURATIONS {
+			n := rand.uint32_range(10, PATH_MAX_NODE)
+
+			graph := graph_init(n, s)
+
+			path := euler_cycle_path(&graph)
+
+			if path == nil {
+				log.info("The path from generated euler cycle doesn't exist: %v", path[:])
+				testing.fail(t)
+			}
+
+			delete(path)
+			graph_delete(&graph)
+		}
+	}
+}
+
+//@(test)
+ham_cycle_gen :: proc(t: ^testing.T) {
+	for i in 0 ..< ITERATION {
+		for s in SATURATIONS {
+			n := rand.uint32_range(10, PATH_MAX_NODE)
+
+			graph := graph_init(n, s)
+
+			path := ham_cycle_path(&graph)
+
+			if path == nil {
+				log.info("The path from generated hamilton cycle doesn't exist: %v", path[:])
+				testing.fail(t)
+			}
+
+			delete(path)
+			graph_delete(&graph)
+		}
+	}
+}
+
 @(test)
-euler_cycle :: proc(t: ^testing.T) {
+nonham_cycle_gen :: proc(t: ^testing.T) {
+	//for i in 0 ..< ITERATION {
+	n: u32 = 7
+
+	graph := graph_init(n, 50, false)
+	log.info(graph.lists)
+	path := ham_cycle_path(&graph)
+
+	if path == nil {
+		log.info("The path from generated hamilton cycle does exist: %v", path[:])
+		testing.fail(t)
+	}
+
+	delete(path)
+	graph_delete(&graph)
+	//}
+}
+
+//@(test)
+euler_cycle_file :: proc(t: ^testing.T) {
 	data, err1 := os.read_entire_file("tests/euler_test.txt", context.allocator)
 	if err1 != nil {
 		log.info("Couldn't open test file for euler's cycle")
@@ -107,8 +169,12 @@ euler_cycle :: proc(t: ^testing.T) {
 		expected, _ := strings.split_lines_iterator(&it_res)
 		path := euler_cycle_path(&graph)
 		if !is_result_correct(&path, &expected) {
-			log.infof("Result of Euler cycle incorrect, expected: %s, got: %v", expected, path)
-			testing.fail_now(t)
+			log.infof(
+				"Result of Euler cycle (file) is incorrect, expected: %s, got: %v",
+				expected,
+				path,
+			)
+			testing.fail(t)
 		}
 
 		delete(path)

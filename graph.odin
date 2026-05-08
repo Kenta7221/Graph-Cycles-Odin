@@ -32,7 +32,7 @@ graph_zero_init :: proc(n: u32) -> Graph {
 }
 
 graph_init :: proc(n, s: u32, is_hamiltonian := true) -> Graph {
-	if n < 10 {
+	if n < 0 {
 		fmt.println("Node amount is too small, n > 10")
 		os.exit(1)
 	}
@@ -58,11 +58,24 @@ graph_init :: proc(n, s: u32, is_hamiltonian := true) -> Graph {
 	if is_hamiltonian {
 		graph_set_edge(cycle[0], cycle[n - 1], &graph)
 		graph_set_edge(cycle[n - 1], cycle[0], &graph)
-	}
 
-	for i in 1 ..< n {
-		graph_set_edge(cycle[i], cycle[i - 1], &graph)
-		graph_set_edge(cycle[i - 1], cycle[i], &graph)
+		for i in 1 ..< n {
+			graph_set_edge(cycle[i], cycle[i - 1], &graph)
+			graph_set_edge(cycle[i - 1], cycle[i], &graph)
+		}
+	} else {
+		// Create two different cycles so the edges stay even
+		mid := n / 2
+		for i in 0 ..< mid {
+			next := (i + 1) % mid
+			graph_set_edge(cycle[i], cycle[next], &graph)
+			graph_set_edge(cycle[next], cycle[i], &graph)
+		}
+		for i in mid ..< n {
+			next := mid + (i - mid + 1) % (n - mid)
+			graph_set_edge(cycle[i], cycle[next], &graph)
+			graph_set_edge(cycle[next], cycle[i], &graph)
+		}
 	}
 
 	e_max: u32 = cast(u32)(n * (n - 1) / 2)
@@ -154,15 +167,12 @@ graph_has_edge :: proc(i, j: u32, graph: ^Graph) -> bool {
 	return false
 }
 
-graph_get_neighbours :: proc(node: u32, graph: ^Graph) -> [dynamic]u32 {
-	result := make([dynamic]u32)
+graph_get_neighbours :: proc(node: u32, graph: ^Graph) -> []u32 {
 	arr, ok := graph.lists[node]
 	if !ok {
-		fmt.println("Node is out of range!")
-		return result
+		return {}
 	}
-	for v in arr^ do append_elem(&result, v)
-	return result
+	return arr[:]
 }
 
 graph_print :: proc(graph: ^Graph) {
@@ -210,8 +220,6 @@ ham_cycle_path :: proc(graph: ^Graph) -> [dynamic]u32 {
 			}
 		}
 
-		delete(neighbours)
-
 		if !has_unvisited_nb {
 			marked[stack[len(stack) - 1].node] = false
 			pop(&stack)
@@ -254,7 +262,6 @@ euler_cycle_path :: proc(src: ^Graph) -> [dynamic]u32 {
 			graph_edge_delete(nb, node, &graph)
 			append_elem(&stack, nb)
 		}
-		delete(neighbours)
 	}
 
 	return path
